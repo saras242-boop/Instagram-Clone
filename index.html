@@ -97,6 +97,7 @@ function getImg(id){if(S.imgs[id]||S.load[id])return;S.load[id]=1;api('images/'+
 const IM=(id,c='')=>{getImg(id);return`<img data-im="${id}" class="${S.imgs[id]?'':'sk'} ${c}" src="${S.imgs[id]||GIF}">`};
 const fmt=n=>n>=1e3?(n/1e3).toFixed(1).replace('.0','')+' ألف':n;
 function toast(t){const e=$('#toast');e.textContent=t;e.className='s';clearTimeout(toast.t);toast.t=setTimeout(()=>e.className='',2200)}
+const errTxt=()=>{const c=String(S.err);return c==='401'||c==='403'?'القاعدة ترفض القراءة (401).<br>عدّل Rules إلى read و write = true ثم اضغط Publish':c==='404'?'قاعدة Realtime Database غير موجودة (404).<br>أنشئها من Firebase Console':'تعذر الاتصال بقاعدة البيانات ('+c+')'};
 const empty=t=>`<p class="mu" style="text-align:center;padding:48px 24px">${t}</p>`;
 const post=p=>{const u=UU(p.u),L=p.likes||{},l=!!L[S.uid],c=Object.values(p.comments||{}).sort((a,b)=>a.t-b.t),o=S.open.has(p.id),sh=o?c:c.slice(-2);
 return`<article id="${p.id}"><div class="ph" data-a="prof" data-i="${p.u}" style="cursor:pointer">${AV(u,32)}<div>${esc(nm(u))}<small> · ${ago(p.t)}</small></div></div>
@@ -113,7 +114,7 @@ home(){const by=stories(),ids=Object.keys(by),ps=list(),m=S.users[S.uid]||{s:1};
 return`<div class="top"><h2 style="font-size:24px;font-weight:600;letter-spacing:-.5px">لمّة</h2><span style="display:flex;gap:18px"><button data-a="people">${I('uadd')}</button><button data-a="go" data-i="notifs">${I('bell')}</button></span></div>
 <div class="stories"><div class="st" data-a="go" data-i="create"><div style="position:relative;display:inline-block">${AV(m,64)}<span style="position:absolute;bottom:0;inset-inline-end:0;background:var(--ac);color:var(--fg);border-radius:50%;width:20px;height:20px;border:2px solid var(--bg);display:grid;place-items:center"><svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="3" fill="none"><path d="M12 5v14M5 12h14"/></svg></span></div><div style="margin-top:4px">قصتك</div></div>
 ${ids.map(id=>`<div class="st" data-a="story" data-i="${id}"><span class="rg ${S.seen.has(id+by[id][0].t)?'v':''}">${AV(UU(id),60)}</span><div>${esc(nm(UU(id)))}</div></div>`).join('')}</div>
-${!S.ready?(S.err?empty('تعذر الاتصال بقاعدة البيانات'):sk):ps.length?ps.map(post).join(''):empty('لا توجد منشورات بعد.<br>كن أول من ينشر صورة!')}`},
+${!S.ready?(S.err?empty(errTxt()):sk):ps.length?ps.map(post).join(''):empty('لا توجد منشورات بعد.<br>كن أول من ينشر صورة!')}`},
 explore(){const q=S.q.trim().toLowerCase(),us=Object.entries(S.users).filter(([id,u])=>id!==S.uid&&(!q||(u.n+u.h).toLowerCase().includes(q))),ps=list().filter(p=>!q||(p.cap||'').toLowerCase().includes(q));
 return`<div class="top" style="display:block"><input data-a="q" id="q" value="${esc(S.q)}" placeholder="بحث عن أشخاص أو وسوم"></div>
 ${us.length?`<div class="sec">${q?'الأشخاص':'اكتشف أشخاصاً'}</div>`+us.slice(0,q?20:5).map(([id,u])=>`<div class="row" data-a="prof" data-i="${id}">${AV(u,44)}<div class="m"><b>${esc(nm(u))}</b><small>${esc(u.n)} · ${folr(id)} متابع</small></div><button class="bt ${isF(id)?'g':''}" data-a="fol" data-i="${id}">${isF(id)?'تتابعه':'متابعة'}</button></div>`).join(''):''}
@@ -142,7 +143,7 @@ function go(v){S.v=v;S.prof=null;if(v!=='messages')S.chat=null;scrollTo(0,0);try
 const upd=id=>{const p=S.posts[id],e=document.getElementById(id);if(p&&e)e.outerHTML=post({...p,id})};
 const ovl=h=>{$('#ovl').innerHTML=`<div class="ov">${h}</div>`};
 const ck=(a,b)=>[a,b].sort().join('_');
-const bad=e=>{console.error(e);toast('تعذر الحفظ — تحقق من قواعد قاعدة البيانات')};
+const bad=e=>{console.error(e);const c=String(e&&e.message||'');toast(c==='401'||c==='403'?'القاعدة ترفض الكتابة ('+c+') — عدّل Rules':'تعذر الحفظ ('+(c||'net')+')')};
 document.addEventListener('click',e=>{if(e.target.classList.contains('ov'))$('#ovl').innerHTML='';const t=e.target.closest('[data-a]');if(!t)return;const a=t.dataset.a,i=t.dataset.i;if(a==='prof'||a==='chat')$('#ovl').innerHTML='';
 if(a==='go')go(i);
 else if(a==='prof'){S.prof=i;S.v='profile';scrollTo(0,0);render()}
@@ -186,7 +187,7 @@ try{await api('images/'+id,'PUT',img);await api('posts/'+id,'PUT',{u:S.uid,cap,t
 function signup(){ovl(`<div><h3 style="margin:0">مرحباً بك في لمّة</h3><p class="mu" style="margin:0">أنشئ حسابك للانضمام مع أصدقائك</p><input id="jn" placeholder="الاسم" maxlength="24"><input id="jh" placeholder="اسم المستخدم (إنجليزي)" maxlength="20" dir="ltr" autocapitalize="none"><button class="bt" data-a="join">انضمام</button></div>`);$('#ovl').firstChild.onclick=null}
 async function join(){const n=$('#jn').value.trim(),h=$('#jh').value.trim().toLowerCase();if(!n)return toast('اكتب اسمك');if(!/^[a-z0-9_.]{3,20}$/.test(h))return toast('اسم المستخدم: 3-20 حرفاً إنجليزياً أو أرقاماً');
 try{const us=(await api('users'))||{};if(Object.values(us).some(u=>u.h===h))return toast('اسم المستخدم مأخوذ');const id='u'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),u={n,h,bio:'',s:1+Math.floor(Math.random()*60),t:Date.now(),seen:Date.now()};await api('users/'+id,'PUT',u);S.uid=id;ls.s('lm_uid',id);S.users[id]=u;$('#ovl').innerHTML='';render(1);sync()}catch(e){bad(e)}}
-async function sync(){try{const[u,p,f]=await Promise.all([api('users'),api('posts'),api('follows')]);S.users=u||{};S.posts=p||{};S.follows=f||{};S.ready=1;S.err=0}catch(e){S.err=1;if(!S.ready)render(1);return}
+async function sync(){try{const[u,p,f]=await Promise.all([api('users'),api('posts'),api('follows')]);S.users=u||{};S.posts=p||{};S.follows=f||{};S.ready=1;S.err=0}catch(e){S.err=String(e&&e.message||'net');if(!S.ready)render(1);return}
 const sig=JSON.stringify([S.posts,S.follows,Object.keys(S.users),Object.values(S.users).map(online)]);if(sig!==S.sig){S.sig=sig;const a=document.activeElement;if(!(a&&a.matches&&a.matches('input,textarea')&&a.value)&&!document.querySelector('.ov,.sv2')&&!(S.v==='messages'&&S.chat))render(1)}}
 const ping=()=>S.uid&&api(`users/${S.uid}/seen`,'PUT',Date.now()).catch(()=>{});
 (function(){const h=location.hash.slice(1);if(V[h]&&h!=='chat')S.v=h;render();if(!S.uid)signup();sync();setInterval(sync,5000);setInterval(ping,25000);ping()})();
